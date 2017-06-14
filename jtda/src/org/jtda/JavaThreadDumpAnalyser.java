@@ -1,5 +1,8 @@
 package org.jtda;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -32,22 +35,22 @@ import org.eclipse.swt.widgets.Text;
 
 public class JavaThreadDumpAnalyser
 {
-  private final Shell window;
-  private final Text inputText;
-  private final Text outputText;
-  private final TabFolder folder;
+  private Shell window;
+  private Text inputText;
+  private Text outputText;
+  private TabFolder folder;
   private List<StackTrace> traces = new ArrayList<StackTrace>();
-  private final Button newToggle;
-  private final Button runnableToggle;
-  private final Button blockedToggle;
-  private final Button waitingToggle;
-  private final Button timedwaitingToggle;
-  private final Button terminatedToggle;
-  private final Button analyseButton;
-  private final Button namesToggle;
-  private final Button ignoreLocksToggle;
-  private final Group filterGroup;
-  private final Group outputGroup;
+  private Button newToggle;
+  private Button runnableToggle;
+  private Button blockedToggle;
+  private Button waitingToggle;
+  private Button timedwaitingToggle;
+  private Button terminatedToggle;
+  private Button analyseButton;
+  private Button namesToggle;
+  private Button ignoreLocksToggle;
+  private Group filterGroup;
+  private Group outputGroup;
 
   public JavaThreadDumpAnalyser(Shell xiWindow)
   {
@@ -108,7 +111,7 @@ public class JavaThreadDumpAnalyser
       @Override
       public void widgetSelected(SelectionEvent arg0)
       {
-        updateOutput();
+        //updateOutput();
       }
     };
 
@@ -177,6 +180,11 @@ public class JavaThreadDumpAnalyser
     inputText.forceFocus();
   }
 
+  public JavaThreadDumpAnalyser()
+  {
+	// Empty constructor.
+  }
+  
   public void open()
   {
     window.open();
@@ -200,6 +208,8 @@ public class JavaThreadDumpAnalyser
       public void run()
       {
         analyseSameThread(input, locks);
+        String output = calculateOutput();
+        updateOutput(output);
       }
     };
     Thread t = new Thread(r);
@@ -369,37 +379,35 @@ public class JavaThreadDumpAnalyser
       break;
       }
     }
-
-    updateOutput();
   }
 
-  private void updateOutput()
+  private String calculateOutput()
   {
     List<StackTrace> filteredTraces = new ArrayList<StackTrace>();
     final Set<Thread.State> activeStates = new HashSet<Thread.State>();
     final boolean[] includeNames = new boolean[1];
     final boolean[] ignoreLocks = new boolean[1];
-    window.getDisplay().syncExec(new Runnable()
+    /*window.getDisplay().syncExec(new Runnable()
     {
       @Override
       public void run()
       {
-        if (newToggle.getSelection())
-          activeStates.add(Thread.State.NEW);
-        if (runnableToggle.getSelection())
+        if (newToggle.getSelection())*/
+          activeStates.add(Thread.State.NEW); // TODO allow parameters to be changed via command line arguments
+        //if (runnableToggle.getSelection())
           activeStates.add(Thread.State.RUNNABLE);
-        if (blockedToggle.getSelection())
+        //if (blockedToggle.getSelection())
           activeStates.add(Thread.State.BLOCKED);
-        if (waitingToggle.getSelection())
+        //if (waitingToggle.getSelection())
           activeStates.add(Thread.State.WAITING);
-        if (timedwaitingToggle.getSelection())
+        //if (timedwaitingToggle.getSelection())
           activeStates.add(Thread.State.TIMED_WAITING);
-        if (terminatedToggle.getSelection())
+        //if (terminatedToggle.getSelection())
           activeStates.add(Thread.State.TERMINATED);
-        includeNames[0] = namesToggle.getSelection();
-        ignoreLocks[0] = ignoreLocksToggle.getSelection();
-      }
-    });
+        includeNames[0] = true; //namesToggle.getSelection();
+        ignoreLocks[0] = true; //ignoreLocksToggle.getSelection();
+      /*}
+    });*/
 
     // Filter out inactive traces
     for (StackTrace trace : traces)
@@ -490,8 +498,12 @@ public class JavaThreadDumpAnalyser
       }
     }
 
-    final String output = resultText.toString();
-    window.getDisplay().syncExec(new Runnable()
+    return resultText.toString();
+  }
+
+  private void updateOutput(String output)
+  {
+  /*  window.getDisplay().syncExec(new Runnable()
     {
       @Override
       public void run()
@@ -500,7 +512,7 @@ public class JavaThreadDumpAnalyser
         outputText.setText(output);
         folder.setSelection(1);
       }
-    });
+    });*/
   }
 
   private void outputStates(StringBuilder resultText, List<StackTrace> traces)
@@ -542,16 +554,45 @@ public class JavaThreadDumpAnalyser
 
   public static void main(String[] args)
   {
-    final Shell window = new Shell();
-    window.setSize(new Point(650, 600));
-    window.setMinimumSize(new Point(650, 600));
-    window.setText("Java Thread Dump Analyser");
+	if (args.length > 0)
+	{
+  	  try {
+  		// Read file
+  	    BufferedReader reader = new BufferedReader( new FileReader (args[0]));
+	    StringBuilder stringBuilder = new StringBuilder();
+	    String lineSeparator = System.getProperty("line.separator");
+	    String line = null;
+		while( (line = reader.readLine()) != null ) {
+		  stringBuilder.append(line);
+		  stringBuilder.append(lineSeparator);
+		}
+		String input = stringBuilder.toString();
+		
+		// Analyse
+		boolean locks = false; // TODO allow parameter to be changed via command line arguments
+		JavaThreadDumpAnalyser jtda = new JavaThreadDumpAnalyser();
+		jtda.analyseSameThread(input, locks);
+        String output = jtda.calculateOutput();
+        System.out.println(output);
+	  } catch (IOException e) {
+		System.err.println("Problem reading file " + args[0]);
+	  }
+	}
+	else
+	{
+	  // Show graphical user interface
 
-    // Fill in UI
-    JavaThreadDumpAnalyser ui = new JavaThreadDumpAnalyser(window);
+      final Shell window = new Shell();
+      window.setSize(new Point(650, 600));
+      window.setMinimumSize(new Point(650, 600));
+      window.setText("Java Thread Dump Analyser");
 
-    // Open UI
-    ui.open();
+      // Fill in UI
+      JavaThreadDumpAnalyser ui = new JavaThreadDumpAnalyser(window);
+
+      // Open UI
+      ui.open();
+	}
   }
 
   private static class StackTrace
